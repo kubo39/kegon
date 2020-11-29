@@ -1,5 +1,6 @@
 version(Windows) import core.sys.windows.windows;
 import std.stdio;
+import std.string;
 
 import bindbc.glfw;
 import bindbc.loader;
@@ -130,6 +131,55 @@ VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint phys
 	return result;
 }
 
+VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint familyIndex)
+{
+	float[1] queuePriorities = [1.0f];
+	VkDeviceQueueCreateInfo queueInfo = {
+		sType: VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		queueFamilyIndex: familyIndex,
+		queueCount: 1,
+		pQueuePriorities: queuePriorities.ptr,
+	};
+
+	const(char)*[] extensions = [
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+	];
+
+	VkPhysicalDeviceFeatures2 features = {
+		sType: VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+	};
+	features.features.multiDrawIndirect = true;
+	features.features.pipelineStatisticsQuery = true;
+	features.features.shaderInt16 = true;
+	features.features.shaderInt64 = true;
+
+	VkPhysicalDeviceVulkan12Features features12 = {
+		sType: VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+		drawIndirectCount: true,
+		storageBuffer8BitAccess: true,
+		uniformAndStorageBuffer8BitAccess: true,
+		storagePushConstant8: true,
+		shaderFloat16: true,
+		shaderInt8: true,
+		samplerFilterMinmax: true,
+		scalarBlockLayout: true,
+	};
+
+	VkDeviceCreateInfo createInfo = {
+		sType: VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+		queueCreateInfoCount: 1,
+		pQueueCreateInfos: &queueInfo,
+		ppEnabledExtensionNames: extensions.ptr,
+		enabledExtensionCount: cast(uint) extensions.length,
+		pNext: &features,
+	};
+	features.pNext = &features12;
+
+	VkDevice device;
+	assert(vkCreateDevice(physicalDevice, &createInfo, null, &device) == VkResult.VK_SUCCESS);
+	return device;
+}
+
 shared static this()
 {
 	// window initialization
@@ -163,6 +213,26 @@ void main()
 	assert(vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices.ptr) == VkResult.VK_SUCCESS);
 	VkPhysicalDevice physicalDevice = pickPhysicalDevice(physicalDevices.ptr, physicalDeviceCount);
 	assert(physicalDevice != VkPhysicalDevice.init);
+
+	uint extensionCount = 0;
+	assert(vkEnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, null) == VkResult.VK_SUCCESS);
+	auto extensions = new VkExtensionProperties[](extensionCount);
+	assert(vkEnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, extensions.ptr) == VkResult.VK_SUCCESS);
+
+	VkPhysicalDeviceProperties props;
+	vkGetPhysicalDeviceProperties(physicalDevice, &props);
+	assert(props.limits.timestampComputeAndGraphics);
+
+	uint familyIndex = getGraphicsFamilyIndex(physicalDevice);
+	assert(familyIndex != VK_QUEUE_FAMILY_IGNORED);
+
+	VkDevice device = createDevice(instance, physicalDevice, familyIndex);
+	scope(exit)
+	{
+		vkDeviceWaitIdle(device);
+		vkDestroyDevice(device, null);
+	}
+	loadDeviceLevelFunctions(instance);
 
 	// create window.
 	auto window = glfwCreateWindow(1024, 768, "kegon", null, null);
