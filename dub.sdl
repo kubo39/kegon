@@ -1,0 +1,8 @@
+name "kegon"
+description "A Vulkan renderer written in D."
+authors "Hiroki Noda"
+copyright "Copyright © 2020, Hiroki Noda"
+license "BSL-1.0"
+dependency "bindbc-glfw" version="~>0.10.1"
+dependency "erupted" version="~>2.1.12"
+versions "GLFW_33"

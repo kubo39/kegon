@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/kegon
+kegon.so
+kegon.dylib
+kegon.dll
+kegon.a
+kegon.lib
+kegon-test-*
+*.exe
+*.o
+*.obj
+*.lst
