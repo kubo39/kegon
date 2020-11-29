@@ -1,4 +1,5 @@
-import core.sys.windows.windows;
+version(Windows) import core.sys.windows.windows;
+import std.stdio;
 
 import bindbc.glfw;
 import bindbc.loader;
@@ -29,11 +30,13 @@ VkInstance createInstance()
 {
 	VkApplicationInfo appInfo = {
 		sType: VK_STRUCTURE_TYPE_APPLICATION_INFO,
+		pNext: null,
 		apiVersion: VK_API_VERSION_1_2,
 	};
 
 	VkInstanceCreateInfo createInfo = {
 		sType: VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+		pNext: null,
 		pApplicationInfo: &appInfo,
 	};
 
@@ -59,9 +62,77 @@ VkInstance createInstance()
 	return instance;
 }
 
-void main()
+uint getGraphicsFamilyIndex(VkPhysicalDevice physicalDevice)
 {
-	// window initialization.
+	uint queueCount;
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, null);
+
+	auto queues = new VkQueueFamilyProperties[](queueCount);
+	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, queues.ptr);
+
+	foreach (i; 0 .. queueCount)
+	{
+		if (queues[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+		{
+			return i;
+		}
+	}
+
+	return VK_QUEUE_FAMILY_IGNORED;
+}
+
+VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint physicalDeviceCount)
+{
+	VkPhysicalDevice preferred;
+	VkPhysicalDevice fallback;
+
+	foreach (i; 0 .. physicalDeviceCount)
+	{
+		VkPhysicalDeviceProperties props;
+		vkGetPhysicalDeviceProperties(physicalDevices[i], &props);
+
+		writefln("GPU%d: %s", i, props.deviceName);
+
+		uint familyIndex = getGraphicsFamilyIndex(physicalDevices[i]);
+		if (familyIndex == VK_QUEUE_FAMILY_IGNORED)
+		{
+			continue;
+		}
+		if (!vkGetPhysicalDeviceWin32PresentationSupportKHR(physicalDevices[i], familyIndex))
+		{
+			continue;
+		}
+		if (props.apiVersion < VK_API_VERSION_1_2)
+		{
+			continue;
+		}
+
+		if (preferred == VkPhysicalDevice.init && props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+		{
+			preferred = physicalDevices[i];
+		}
+		if (fallback == VkPhysicalDevice.init)
+		{
+			fallback = physicalDevices[i];
+		}
+	}
+
+	VkPhysicalDevice result = preferred != VkPhysicalDevice.init ? preferred : fallback;
+	if (result != VkPhysicalDevice.init)
+	{
+		VkPhysicalDeviceProperties props;
+		vkGetPhysicalDeviceProperties(result, &props);
+	}
+	else
+	{
+		writeln("ERROR: No GPU found");
+	}
+	return result;
+}
+
+shared static this()
+{
+	// window initialization
 	version(Windows)
 	{
 		const rc = loadGLFW("lib/glfw3.dll");
@@ -74,15 +145,24 @@ void main()
 	// vulkan initialization.
 	import erupted.vulkan_lib_loader : loadGlobalLevelFunctions;
 	loadGlobalLevelFunctions();
+}
 
+shared static ~this()
+{
+	glfwTerminate();
+}
+
+void main()
+{
 	VkInstance instance = createInstance();
-	scope(exit)
-	{
-		if (instance != VK_NULL_HANDLE)
-		{
-			vkDestroyInstance(instance, null);
-		}
-	}
+	scope(exit) vkDestroyInstance(instance, null);
+	loadInstanceLevelFunctions(instance);
+
+	VkPhysicalDevice[16] physicalDevices;
+	uint physicalDeviceCount = cast(uint) physicalDevices.length;
+	assert(vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices.ptr) == VkResult.VK_SUCCESS);
+	VkPhysicalDevice physicalDevice = pickPhysicalDevice(physicalDevices.ptr, physicalDeviceCount);
+	assert(physicalDevice != VkPhysicalDevice.init);
 
 	// create window.
 	auto window = glfwCreateWindow(1024, 768, "kegon", null, null);
