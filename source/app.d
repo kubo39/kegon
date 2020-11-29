@@ -10,6 +10,7 @@ import erupted.platform_extensions;
 mixin Platform_Extensions!USE_PLATFORM_WIN32_KHR;
 
 mixin(bindGLFW_Vulkan);
+version(Windows) mixin(bindGLFW_Windows);
 
 ///
 extern (C) void keyCallback(GLFWwindow* window, int key, int scancode,
@@ -180,6 +181,25 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 	return device;
 }
 
+/**
+*  Swapchain
+*/
+VkSurfaceKHR createSurface(VkInstance instance, GLFWwindow* window)
+{
+	version(Windows)
+	{
+		VkWin32SurfaceCreateInfoKHR createInfo = {
+			sType: VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
+			hinstance: GetModuleHandle(null),
+			hwnd: glfwGetWin32Window(window),
+		};
+		VkSurfaceKHR surface;
+		assert(vkCreateWin32SurfaceKHR(instance, &createInfo, null, &surface) == VkResult.VK_SUCCESS);
+		return surface;
+	}
+	else static assert(false, "Unsupported platform.");
+}
+
 shared static this()
 {
 	// window initialization
@@ -187,6 +207,7 @@ shared static this()
 	{
 		const rc = loadGLFW("lib/glfw3.dll");
 		assert(rc == glfwSupport);
+		assert(loadGLFW_Windows);
 	}
 	assert(glfwInit() != 0);
 	assert(glfwVulkanSupported() != 0);
@@ -239,6 +260,14 @@ void main()
 	assert(window !is null);
 	scope(exit) glfwDestroyWindow(window);
 	glfwSetKeyCallback(window, &keyCallback);
+
+	VkSurfaceKHR surface = createSurface(instance, window);
+	assert(surface);
+	scope(exit) vkDestroySurfaceKHR(instance, surface, null);
+
+	VkBool32 presentSupported = VK_FALSE;
+	assert(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, familyIndex, surface, &presentSupported) == VkResult.VK_SUCCESS);
+	assert(presentSupported);
 
 	while (!glfwWindowShouldClose(window))
 	{
