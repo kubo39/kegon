@@ -200,6 +200,50 @@ VkSurfaceKHR createSurface(VkInstance instance, GLFWwindow* window)
 	else static assert(false, "Unsupported platform.");
 }
 
+VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface)
+{
+	uint formatCount = 0;
+	assert(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, null) == VkResult.VK_SUCCESS);
+	assert(formatCount > 0);
+
+	auto formats = new VkSurfaceFormatKHR[](formatCount);
+	assert(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats.ptr) == VkResult.VK_SUCCESS);
+
+	if (formatCount == 1 && formats[0].format == VK_FORMAT_UNDEFINED)
+	{
+		return VK_FORMAT_R8G8B8A8_UNORM;
+	}
+
+	foreach (i; 0 .. formatCount)
+	{
+		if (formats[i].format == VK_FORMAT_R8G8B8A8_UNORM || formats[i].format == VK_FORMAT_B8G8R8A8_UNORM)
+			return formats[i].format;
+	}
+
+	return formats[0].format;
+}
+
+VkSwapchainKHR createSwapchain(VkDevice device, VkSurfaceKHR surface, VkFormat format, uint familyIndex, int width, int height)
+{
+	VkSwapchainCreateInfoKHR createInfo = {
+		sType: VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+		surface: surface,
+		minImageCount: 2,
+		imageFormat: format,
+		imageColorSpace: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+		imageArrayLayers: 1,
+		imageUsage: VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+		queueFamilyIndexCount: 1,
+		pQueueFamilyIndices: &familyIndex,
+		presentMode: VK_PRESENT_MODE_FIFO_KHR,
+	};
+	createInfo.imageExtent.width = width;
+	createInfo.imageExtent.height = height;
+	VkSwapchainKHR swapchain;
+	assert(vkCreateSwapchainKHR(device, &createInfo, null, &swapchain) == VkResult.VK_SUCCESS);
+	return swapchain;
+}
+
 shared static this()
 {
 	// window initialization
@@ -244,7 +288,7 @@ void main()
 	vkGetPhysicalDeviceProperties(physicalDevice, &props);
 	assert(props.limits.timestampComputeAndGraphics);
 
-	uint familyIndex = getGraphicsFamilyIndex(physicalDevice);
+	const uint familyIndex = getGraphicsFamilyIndex(physicalDevice);
 	assert(familyIndex != VK_QUEUE_FAMILY_IGNORED);
 
 	VkDevice device = createDevice(instance, physicalDevice, familyIndex);
@@ -268,6 +312,12 @@ void main()
 	VkBool32 presentSupported = VK_FALSE;
 	assert(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, familyIndex, surface, &presentSupported) == VkResult.VK_SUCCESS);
 	assert(presentSupported);
+
+	VkFormat swapchainFormat = getSwapchainFormat(physicalDevice, surface);
+
+	int windowWidth, windowHeight;
+	glfwGetWindowSize(window, &windowWidth, &windowHeight);
+	VkSwapchainKHR swapchain = createSwapchain(device, surface, swapchainFormat, familyIndex, windowWidth, windowHeight);
 
 	while (!glfwWindowShouldClose(window))
 	{
