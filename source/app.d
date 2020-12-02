@@ -184,6 +184,16 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 /**
 *  Swapchain
 */
+struct Swapchain
+{
+	VkSwapchainKHR swapchain;
+	VkImage[] images;
+	uint width;
+	uint height;
+	int imageCount;
+}
+
+
 VkSurfaceKHR createSurface(VkInstance instance, GLFWwindow* window)
 {
 	version(Windows)
@@ -223,8 +233,17 @@ VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surfac
 	return formats[0].format;
 }
 
-VkSwapchainKHR createSwapchain(VkDevice device, VkSurfaceKHR surface, VkFormat format, uint familyIndex, int width, int height)
+VkSwapchainKHR createSwapchain(VkDevice device, VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR surfaceCaps, uint familyIndex, VkFormat format)
 {
+	VkCompositeAlphaFlagBitsKHR surfaceComposite =
+		(surfaceCaps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR)
+		? VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR
+		: (surfaceCaps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR)
+		? VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR
+		: (surfaceCaps.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR)
+		? VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR
+		: VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
+
 	VkSwapchainCreateInfoKHR createInfo = {
 		sType: VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		surface: surface,
@@ -232,16 +251,43 @@ VkSwapchainKHR createSwapchain(VkDevice device, VkSurfaceKHR surface, VkFormat f
 		imageFormat: format,
 		imageColorSpace: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
 		imageArrayLayers: 1,
-		imageUsage: VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+		imageUsage: VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 		queueFamilyIndexCount: 1,
 		pQueueFamilyIndices: &familyIndex,
 		presentMode: VK_PRESENT_MODE_FIFO_KHR,
+		compositeAlpha: surfaceComposite,
 	};
-	createInfo.imageExtent.width = width;
-	createInfo.imageExtent.height = height;
+	createInfo.imageExtent.width = surfaceCaps.currentExtent.width;
+	createInfo.imageExtent.height = surfaceCaps.currentExtent.height;
+
 	VkSwapchainKHR swapchain;
 	assert(vkCreateSwapchainKHR(device, &createInfo, null, &swapchain) == VkResult.VK_SUCCESS);
 	return swapchain;
+}
+
+void createSwapchain(Swapchain* result, VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, uint familyIndex, VkFormat format)
+{
+	VkSurfaceCapabilitiesKHR surfaceCaps;
+	assert(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCaps) == VkResult.VK_SUCCESS);
+
+	VkSwapchainKHR swapchain = createSwapchain(device, surface, surfaceCaps, familyIndex, format);
+
+	uint imageCount = 0;
+	assert(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, null) == VkResult.VK_SUCCESS);
+
+	auto images = new VkImage[](imageCount);
+	assert(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, images.ptr) == VkResult.VK_SUCCESS);
+
+	result.swapchain = swapchain;
+	result.images = images;
+	result.width = surfaceCaps.currentExtent.width;
+	result.height = surfaceCaps.currentExtent.height;
+	result.imageCount = imageCount;
+}
+
+void destroySwapchain(VkDevice device, Swapchain* swapchain)
+{
+	vkDestroySwapchainKHR(device, swapchain.swapchain, null);
 }
 
 shared static this()
@@ -265,6 +311,28 @@ shared static this()
 shared static ~this()
 {
 	glfwTerminate();
+}
+
+VkSemaphore createSemaphore(VkDevice device)
+{
+	VkSemaphoreCreateInfo createInfo = {
+		sType: VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+	};
+	VkSemaphore semaphore;
+	assert(vkCreateSemaphore(device, &createInfo, null, &semaphore) == VkResult.VK_SUCCESS);
+	return semaphore;
+}
+
+VkCommandPool createCommandPool(VkDevice device, uint familyIndex)
+{
+	VkCommandPoolCreateInfo createInfo = {
+		sType: VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		flags: VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
+		queueFamilyIndex: familyIndex,
+	};
+	VkCommandPool commandPool;
+	assert(vkCreateCommandPool(device, &createInfo, null, &commandPool) == VkResult.VK_SUCCESS);
+	return commandPool;
 }
 
 void main()
@@ -315,12 +383,82 @@ void main()
 
 	VkFormat swapchainFormat = getSwapchainFormat(physicalDevice, surface);
 
-	int windowWidth, windowHeight;
-	glfwGetWindowSize(window, &windowWidth, &windowHeight);
-	VkSwapchainKHR swapchain = createSwapchain(device, surface, swapchainFormat, familyIndex, windowWidth, windowHeight);
+	VkSemaphore acquireSemaphore = createSemaphore(device);
+	assert(acquireSemaphore);
+	scope(exit) vkDestroySemaphore(device, acquireSemaphore, null);
+
+	VkSemaphore releaseSemaphore = createSemaphore(device);
+	assert(releaseSemaphore);
+	scope(exit) vkDestroySemaphore(device, releaseSemaphore, null);
+
+	VkQueue queue;
+	vkGetDeviceQueue(device, familyIndex, 0, &queue);
+
+	Swapchain swapchain;
+	createSwapchain(&swapchain, physicalDevice, device, surface, familyIndex, swapchainFormat);
+	scope(exit) destroySwapchain(device, &swapchain);
+
+	VkCommandPool commandPool = createCommandPool(device, familyIndex);
+	assert(commandPool);
+
+	VkCommandBufferAllocateInfo allocateInfo = {
+		sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		commandPool: commandPool,
+		level: VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		commandBufferCount: 1,
+	};
+	VkCommandBuffer commandBuffer;
+	assert(vkAllocateCommandBuffers(device, &allocateInfo, &commandBuffer) == VkResult.VK_SUCCESS);
 
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
+
+		uint imageIndex = 0;
+		assert(vkAcquireNextImageKHR(device, swapchain.swapchain, ~0UL, acquireSemaphore, VK_NULL_HANDLE, &imageIndex) == VkResult.VK_SUCCESS);
+
+		assert(vkResetCommandPool(device, commandPool, 0) == VkResult.VK_SUCCESS);
+
+		VkCommandBufferBeginInfo beginInfo = {
+			sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		};
+		assert(vkBeginCommandBuffer(commandBuffer, &beginInfo) == VkResult.VK_SUCCESS);
+
+		VkClearColorValue color;
+		color.int32 = [1, 0, 1, 1];
+		VkImageSubresourceRange range = {
+			aspectMask: VK_IMAGE_ASPECT_COLOR_BIT,
+			levelCount: 1,
+			layerCount: 1,
+		};
+		vkCmdClearColorImage(commandBuffer, swapchain.images[imageIndex], VK_IMAGE_LAYOUT_GENERAL, &color, 1, &range);
+
+		assert(vkEndCommandBuffer(commandBuffer) == VkResult.VK_SUCCESS);
+
+		VkPipelineStageFlags submitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		VkSubmitInfo submitInfo = {
+			sType: VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			waitSemaphoreCount: 1,
+			pWaitSemaphores: &acquireSemaphore,
+			pWaitDstStageMask: &submitStageMask,
+			commandBufferCount: 1,
+			pCommandBuffers: &commandBuffer,
+			signalSemaphoreCount: 1,
+			pSignalSemaphores: &releaseSemaphore,
+		};
+		assert(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE) == VkResult.VK_SUCCESS);
+
+		VkPresentInfoKHR presentInfo = {
+			sType: VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+			waitSemaphoreCount: 1,
+			pWaitSemaphores: &releaseSemaphore,
+			pSwapchains: &swapchain.swapchain,
+			swapchainCount: 1,
+			pImageIndices: &imageIndex,
+		};
+		assert(vkQueuePresentKHR(queue, &presentInfo) == VkResult.VK_SUCCESS);
+
+		assert(vkDeviceWaitIdle(device) == VkResult.VK_SUCCESS);
 	}
 }
