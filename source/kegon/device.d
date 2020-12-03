@@ -20,7 +20,7 @@ VkInstance createInstance()
 		pApplicationInfo: &appInfo,
 	};
 
-	debug
+	//debug
 	{
 		const(char)*[] debugLayers = [
 			"VK_LAYER_KHRONOS_validation"

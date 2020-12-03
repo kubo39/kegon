@@ -70,6 +70,74 @@ VkCommandPool createCommandPool(VkDevice device, uint familyIndex)
 	return commandPool;
 }
 
+VkRenderPass createRenderPass(VkDevice device, VkFormat colorFormat)
+{
+	VkAttachmentDescription[1] attachments;
+	with (attachments[0])
+	{
+		format = colorFormat;
+		samples = VK_SAMPLE_COUNT_1_BIT;
+		loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	}
+
+	VkAttachmentReference colorAttachment = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+	VkSubpassDescription subpass = {
+		pipelineBindPoint: VK_PIPELINE_BIND_POINT_GRAPHICS,
+		colorAttachmentCount: 1,
+		pColorAttachments: &colorAttachment,
+	};
+	VkRenderPassCreateInfo createInfo = {
+		sType: VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+		attachmentCount: 1,
+		pAttachments: attachments.ptr,
+		subpassCount: 1,
+		pSubpasses: &subpass,
+	};
+	VkRenderPass renderPass;
+	assert(vkCreateRenderPass(device, &createInfo, null, &renderPass) == VkResult.VK_SUCCESS);
+	return renderPass;
+}
+
+VkFramebuffer createFramebuffer(VkDevice device, VkRenderPass renderPass, VkImageView colorView, uint width, uint height)
+{
+	VkFramebufferCreateInfo createInfo = {
+		sType: VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+		renderPass: renderPass,
+		attachmentCount: 1,
+		pAttachments: &colorView,
+		width: width,
+		height: height,
+		layers: 1,
+	};
+	VkFramebuffer framebuffer;
+	assert(vkCreateFramebuffer(device, &createInfo, null, &framebuffer) == VkResult.VK_SUCCESS);
+	return framebuffer;
+}
+
+VkImageView createImageView(VkDevice device, VkImage image, VkFormat format)
+{
+	VkImageSubresourceRange subresourceRange = {
+		aspectMask: VK_IMAGE_ASPECT_COLOR_BIT,
+		levelCount: 1,
+		layerCount: 1,
+	};
+	VkImageViewCreateInfo createInfo = {
+		sType: VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		image: image,
+		viewType: VK_IMAGE_VIEW_TYPE_2D,
+		format: format,
+		subresourceRange: subresourceRange,
+	};
+	VkImageView view;
+	assert(vkCreateImageView(device, &createInfo, null, &view) == VkResult.VK_SUCCESS);
+	return view;
+}
+
 void main()
 {
 	VkInstance instance = createInstance();
@@ -129,12 +197,45 @@ void main()
 	VkQueue queue;
 	vkGetDeviceQueue(device, familyIndex, 0, &queue);
 
+	VkRenderPass renderPass = createRenderPass(device, swapchainFormat);
+	assert(renderPass);
+	scope(exit) vkDestroyRenderPass(device, renderPass, null);
+
 	Swapchain swapchain;
 	createSwapchain(&swapchain, physicalDevice, device, surface, familyIndex, swapchainFormat);
 	scope(exit) destroySwapchain(device, &swapchain);
 
+	VkImageView[16] swapchainImageViews;
+	foreach (uint i; 0 .. swapchain.imageCount)
+	{
+		swapchainImageViews[i] = createImageView(device, swapchain.images[i], VK_FORMAT_R32_SFLOAT);
+		assert(swapchainImageViews[i]);
+	}
+	scope(exit)
+	{
+		foreach (uint i; 0 .. swapchain.imageCount)
+		{
+			vkDestroyImageView(device, swapchainImageViews[i], null);
+		}
+	}
+
+	VkFramebuffer[16] swapchainFramebuffers;
+	foreach (uint i; 0 .. swapchain.imageCount)
+	{
+		swapchainFramebuffers[i] = createFramebuffer(device, renderPass, swapchainImageViews[i], swapchain.width, swapchain.height);
+		assert(swapchainFramebuffers[i]);
+	}
+	scope(exit)
+	{
+		foreach (uint i; 0 .. swapchain.imageCount)
+		{
+			vkDestroyFramebuffer(device, swapchainFramebuffers[i], null);
+		}
+	}
+
 	VkCommandPool commandPool = createCommandPool(device, familyIndex);
 	assert(commandPool);
+	scope(exit) vkDestroyCommandPool(device, commandPool, null);
 
 	VkCommandBufferAllocateInfo allocateInfo = {
 		sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
@@ -160,14 +261,25 @@ void main()
 		};
 		assert(vkBeginCommandBuffer(commandBuffer, &beginInfo) == VkResult.VK_SUCCESS);
 
+		// TODO: not sure but could not fill the image.
 		VkClearColorValue color;
 		color.int32 = [1, 0, 1, 1];
-		VkImageSubresourceRange range = {
-			aspectMask: VK_IMAGE_ASPECT_COLOR_BIT,
-			levelCount: 1,
-			layerCount: 1,
+		VkClearValue clearColor = { color: color };
+
+		VkRenderPassBeginInfo passBeginInfo = {
+			sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+			renderPass: renderPass,
+			framebuffer: swapchainFramebuffers[imageIndex],
+			clearValueCount: 1,
+			pClearValues: &clearColor,
 		};
-		vkCmdClearColorImage(commandBuffer, swapchain.images[imageIndex], VK_IMAGE_LAYOUT_GENERAL, &color, 1, &range);
+		passBeginInfo.renderArea.extent.width = swapchain.width;
+		passBeginInfo.renderArea.extent.height = swapchain.height;
+		vkCmdBeginRenderPass(commandBuffer, &passBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+		// draw calls
+
+		vkCmdEndRenderPass(commandBuffer);
 
 		assert(vkEndCommandBuffer(commandBuffer) == VkResult.VK_SUCCESS);
 

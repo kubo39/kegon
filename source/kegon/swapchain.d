@@ -75,6 +75,7 @@ VkSwapchainKHR createSwapchain(VkDevice device, VkSurfaceKHR surface, VkSurfaceC
 		imageUsage: VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 		queueFamilyIndexCount: 1,
 		pQueueFamilyIndices: &familyIndex,
+		preTransform: VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
 		presentMode: VK_PRESENT_MODE_FIFO_KHR,
 		compositeAlpha: surfaceComposite,
 	};
