@@ -38,7 +38,7 @@ VkInstance createInstance()
 	createInfo.enabledExtensionCount = cast(uint) extensions.length;
 
 	VkInstance instance;
-	assert(vkCreateInstance(&createInfo, null, &instance) == VkResult.VK_SUCCESS);
+	enforceVK(vkCreateInstance(&createInfo, null, &instance));
 	return instance;
 }
 
@@ -155,6 +155,6 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 	features.pNext = &features12;
 
 	VkDevice device;
-	assert(vkCreateDevice(physicalDevice, &createInfo, null, &device) == VkResult.VK_SUCCESS);
+	enforceVK(vkCreateDevice(physicalDevice, &createInfo, null, &device));
 	return device;
 }

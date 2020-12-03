@@ -25,7 +25,7 @@ VkSurfaceKHR createSurface(VkInstance instance, GLFWwindow* window)
 			hwnd: glfwGetWin32Window(window),
 		};
 		VkSurfaceKHR surface;
-		assert(vkCreateWin32SurfaceKHR(instance, &createInfo, null, &surface) == VkResult.VK_SUCCESS);
+		enforceVK(vkCreateWin32SurfaceKHR(instance, &createInfo, null, &surface));
 		return surface;
 	}
 	else static assert(false, "Unsupported platform.");
@@ -34,11 +34,11 @@ VkSurfaceKHR createSurface(VkInstance instance, GLFWwindow* window)
 VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface)
 {
 	uint formatCount = 0;
-	assert(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, null) == VkResult.VK_SUCCESS);
+	enforceVK(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, null));
 	assert(formatCount > 0);
 
 	auto formats = new VkSurfaceFormatKHR[](formatCount);
-	assert(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats.ptr) == VkResult.VK_SUCCESS);
+	enforceVK(vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, surface, &formatCount, formats.ptr));
 
 	if (formatCount == 1 && formats[0].format == VK_FORMAT_UNDEFINED)
 	{
@@ -83,22 +83,22 @@ VkSwapchainKHR createSwapchain(VkDevice device, VkSurfaceKHR surface, VkSurfaceC
 	createInfo.imageExtent.height = surfaceCaps.currentExtent.height;
 
 	VkSwapchainKHR swapchain;
-	assert(vkCreateSwapchainKHR(device, &createInfo, null, &swapchain) == VkResult.VK_SUCCESS);
+	enforceVK(vkCreateSwapchainKHR(device, &createInfo, null, &swapchain));
 	return swapchain;
 }
 
 void createSwapchain(Swapchain* result, VkPhysicalDevice physicalDevice, VkDevice device, VkSurfaceKHR surface, uint familyIndex, VkFormat format)
 {
 	VkSurfaceCapabilitiesKHR surfaceCaps;
-	assert(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCaps) == VkResult.VK_SUCCESS);
+	enforceVK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, surface, &surfaceCaps));
 
 	VkSwapchainKHR swapchain = createSwapchain(device, surface, surfaceCaps, familyIndex, format);
 
 	uint imageCount = 0;
-	assert(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, null) == VkResult.VK_SUCCESS);
+	enforceVK(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, null));
 
 	auto images = new VkImage[](imageCount);
-	assert(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, images.ptr) == VkResult.VK_SUCCESS);
+	enforceVK(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, images.ptr));
 
 	result.swapchain = swapchain;
 	result.images = images;

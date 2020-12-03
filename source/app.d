@@ -54,7 +54,7 @@ VkSemaphore createSemaphore(VkDevice device)
 		sType: VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
 	};
 	VkSemaphore semaphore;
-	assert(vkCreateSemaphore(device, &createInfo, null, &semaphore) == VkResult.VK_SUCCESS);
+	enforceVK(vkCreateSemaphore(device, &createInfo, null, &semaphore));
 	return semaphore;
 }
 
@@ -66,7 +66,7 @@ VkCommandPool createCommandPool(VkDevice device, uint familyIndex)
 		queueFamilyIndex: familyIndex,
 	};
 	VkCommandPool commandPool;
-	assert(vkCreateCommandPool(device, &createInfo, null, &commandPool) == VkResult.VK_SUCCESS);
+	enforceVK(vkCreateCommandPool(device, &createInfo, null, &commandPool));
 	return commandPool;
 }
 
@@ -99,7 +99,7 @@ VkRenderPass createRenderPass(VkDevice device, VkFormat colorFormat)
 		pSubpasses: &subpass,
 	};
 	VkRenderPass renderPass;
-	assert(vkCreateRenderPass(device, &createInfo, null, &renderPass) == VkResult.VK_SUCCESS);
+	enforceVK(vkCreateRenderPass(device, &createInfo, null, &renderPass));
 	return renderPass;
 }
 
@@ -115,7 +115,7 @@ VkFramebuffer createFramebuffer(VkDevice device, VkRenderPass renderPass, VkImag
 		layers: 1,
 	};
 	VkFramebuffer framebuffer;
-	assert(vkCreateFramebuffer(device, &createInfo, null, &framebuffer) == VkResult.VK_SUCCESS);
+	enforceVK(vkCreateFramebuffer(device, &createInfo, null, &framebuffer));
 	return framebuffer;
 }
 
@@ -134,7 +134,7 @@ VkImageView createImageView(VkDevice device, VkImage image, VkFormat format)
 		subresourceRange: subresourceRange,
 	};
 	VkImageView view;
-	assert(vkCreateImageView(device, &createInfo, null, &view) == VkResult.VK_SUCCESS);
+	enforceVK(vkCreateImageView(device, &createInfo, null, &view));
 	return view;
 }
 
@@ -146,14 +146,14 @@ void main()
 
 	VkPhysicalDevice[16] physicalDevices;
 	uint physicalDeviceCount = cast(uint) physicalDevices.length;
-	assert(vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices.ptr) == VkResult.VK_SUCCESS);
+	enforceVK(vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices.ptr));
 	VkPhysicalDevice physicalDevice = pickPhysicalDevice(physicalDevices.ptr, physicalDeviceCount);
 	assert(physicalDevice != VkPhysicalDevice.init);
 
 	uint extensionCount = 0;
-	assert(vkEnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, null) == VkResult.VK_SUCCESS);
+	enforceVK(vkEnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, null));
 	auto extensions = new VkExtensionProperties[](extensionCount);
-	assert(vkEnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, extensions.ptr) == VkResult.VK_SUCCESS);
+	enforceVK(vkEnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, extensions.ptr));
 
 	VkPhysicalDeviceProperties props;
 	vkGetPhysicalDeviceProperties(physicalDevice, &props);
@@ -181,7 +181,7 @@ void main()
 	scope(exit) vkDestroySurfaceKHR(instance, surface, null);
 
 	VkBool32 presentSupported = VK_FALSE;
-	assert(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, familyIndex, surface, &presentSupported) == VkResult.VK_SUCCESS);
+	enforceVK(vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, familyIndex, surface, &presentSupported));
 	assert(presentSupported);
 
 	VkFormat swapchainFormat = getSwapchainFormat(physicalDevice, surface);
@@ -244,22 +244,22 @@ void main()
 		commandBufferCount: 1,
 	};
 	VkCommandBuffer commandBuffer;
-	assert(vkAllocateCommandBuffers(device, &allocateInfo, &commandBuffer) == VkResult.VK_SUCCESS);
+	enforceVK(vkAllocateCommandBuffers(device, &allocateInfo, &commandBuffer));
 
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
 
 		uint imageIndex = 0;
-		assert(vkAcquireNextImageKHR(device, swapchain.swapchain, ~0UL, acquireSemaphore, VK_NULL_HANDLE, &imageIndex) == VkResult.VK_SUCCESS);
+		enforceVK(vkAcquireNextImageKHR(device, swapchain.swapchain, ~0UL, acquireSemaphore, VK_NULL_HANDLE, &imageIndex));
 
-		assert(vkResetCommandPool(device, commandPool, 0) == VkResult.VK_SUCCESS);
+		enforceVK(vkResetCommandPool(device, commandPool, 0));
 
 		VkCommandBufferBeginInfo beginInfo = {
 			sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 		};
-		assert(vkBeginCommandBuffer(commandBuffer, &beginInfo) == VkResult.VK_SUCCESS);
+		enforceVK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
 		// TODO: not sure but could not fill the image.
 		VkClearColorValue color;
@@ -281,7 +281,7 @@ void main()
 
 		vkCmdEndRenderPass(commandBuffer);
 
-		assert(vkEndCommandBuffer(commandBuffer) == VkResult.VK_SUCCESS);
+		enforceVK(vkEndCommandBuffer(commandBuffer));
 
 		VkPipelineStageFlags submitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		VkSubmitInfo submitInfo = {
@@ -294,7 +294,7 @@ void main()
 			signalSemaphoreCount: 1,
 			pSignalSemaphores: &releaseSemaphore,
 		};
-		assert(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE) == VkResult.VK_SUCCESS);
+		enforceVK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 		VkPresentInfoKHR presentInfo = {
 			sType: VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -304,8 +304,8 @@ void main()
 			swapchainCount: 1,
 			pImageIndices: &imageIndex,
 		};
-		assert(vkQueuePresentKHR(queue, &presentInfo) == VkResult.VK_SUCCESS);
+		enforceVK(vkQueuePresentKHR(queue, &presentInfo));
 
-		assert(vkDeviceWaitIdle(device) == VkResult.VK_SUCCESS);
+		enforceVK(vkDeviceWaitIdle(device));
 	}
 }
