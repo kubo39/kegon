@@ -202,6 +202,7 @@ void main()
 	assert(presentSupported);
 
 	VkFormat swapchainFormat = getSwapchainFormat(physicalDevice, surface);
+	assert(swapchainFormat);
 
 	VkSemaphore acquireSemaphore = createSemaphore(device);
 	assert(acquireSemaphore);
@@ -240,7 +241,7 @@ void main()
 	VkImageView[16] swapchainImageViews;
 	foreach (uint i; 0 .. swapchain.imageCount)
 	{
-		swapchainImageViews[i] = createImageView(device, swapchain.images[i], VK_FORMAT_R32_SFLOAT);
+		swapchainImageViews[i] = createImageView(device, swapchain.images[i], swapchainFormat);
 		assert(swapchainImageViews[i]);
 	}
 	scope(exit)
