@@ -1,6 +1,7 @@
 module kegon.swapchain;
 
 version(Windows) import core.sys.windows.windows;
+import std.algorithm : max;
 
 import erupted;
 
@@ -68,7 +69,7 @@ VkSwapchainKHR createSwapchain(VkDevice device, VkSurfaceKHR surface, VkSurfaceC
 	VkSwapchainCreateInfoKHR createInfo = {
 		sType: VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		surface: surface,
-		minImageCount: 2,
+		minImageCount: max(2, surfaceCaps.minImageCount),
 		imageFormat: format,
 		imageColorSpace: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
 		imageArrayLayers: 1,

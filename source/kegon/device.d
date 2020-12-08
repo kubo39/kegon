@@ -1,5 +1,7 @@
 module kegon.device;
 
+version(Windows) import core.sys.windows.windows;
+import core.stdc.stdio : printf, snprintf;
 import std.stdio;
 
 import erupted;
@@ -31,7 +33,8 @@ VkInstance createInstance()
 
 	const(char)*[] extensions = [
 		VK_KHR_SURFACE_EXTENSION_NAME,
-		VK_KHR_WIN32_SURFACE_EXTENSION_NAME
+		VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+		VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
 	];
 
 	createInfo.ppEnabledExtensionNames = extensions.ptr;
@@ -40,6 +43,44 @@ VkInstance createInstance()
 	VkInstance instance;
 	enforceVK(vkCreateInstance(&createInfo, null, &instance));
 	return instance;
+}
+
+extern (Windows) VkBool32 debugReportCallback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, ulong object, size_t location, int messageCode, const(char)* pLayerPrefix, const(char)* pMessage, void* pUserData)
+	nothrow @nogc
+{
+	const(char)* type =
+		(flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
+		? "ERROR"
+		: (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
+			? "WARNING"
+			: "INFO";
+	char[4096] message;
+	snprintf(message.ptr, message.length, "%s: %s\n", type, pMessage);
+	printf("%s", message.ptr);
+
+	version(Windows)
+	{
+		OutputDebugStringA(message.ptr);
+	}
+
+	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
+	{
+		assert(false, "Validation error encounted");
+	}
+
+	return VK_FALSE;
+}
+
+VkDebugReportCallbackEXT registerDebugCallback(VkInstance instance)
+{
+	VkDebugReportCallbackCreateInfoEXT createInfo = {
+		sType: VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
+		flags: VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | VK_DEBUG_REPORT_ERROR_BIT_EXT,
+		pfnCallback: &debugReportCallback,
+	};
+	VkDebugReportCallbackEXT callback;
+	enforceVK(vkCreateDebugReportCallbackEXT(instance, &createInfo, null, &callback));
+	return callback;
 }
 
 uint getGraphicsFamilyIndex(VkPhysicalDevice physicalDevice)

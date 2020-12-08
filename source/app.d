@@ -9,6 +9,7 @@ import erupted;
 
 import kegon.common;
 import kegon.device;
+import kegon.resources;
 import kegon.shaders;
 import kegon.swapchain;
 
@@ -161,6 +162,10 @@ void main()
 	scope(exit) vkDestroyInstance(instance, null);
 	kegon.common.loadInstanceLevelFunctions(instance);
 
+	VkDebugReportCallbackEXT debugCallback = registerDebugCallback(instance);
+	assert(debugCallback);
+	scope(exit) vkDestroyDebugReportCallbackEXT(instance, debugCallback, null);
+
 	VkPhysicalDevice[16] physicalDevices;
 	uint physicalDeviceCount = cast(uint) physicalDevices.length;
 	enforceVK(vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices.ptr));
@@ -238,7 +243,7 @@ void main()
 	createSwapchain(&swapchain, physicalDevice, device, surface, familyIndex, swapchainFormat);
 	scope(exit) destroySwapchain(device, &swapchain);
 
-	VkImageView[16] swapchainImageViews;
+	auto swapchainImageViews = new VkImageView[](swapchain.imageCount);
 	foreach (uint i; 0 .. swapchain.imageCount)
 	{
 		swapchainImageViews[i] = createImageView(device, swapchain.images[i], swapchainFormat);
@@ -252,7 +257,7 @@ void main()
 		}
 	}
 
-	VkFramebuffer[16] swapchainFramebuffers;
+	auto swapchainFramebuffers = new VkFramebuffer[](swapchain.imageCount);
 	foreach (uint i; 0 .. swapchain.imageCount)
 	{
 		swapchainFramebuffers[i] = createFramebuffer(device, renderPass, swapchainImageViews[i], swapchain.width, swapchain.height);
@@ -294,6 +299,9 @@ void main()
 		};
 		enforceVK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
+		VkImageMemoryBarrier renderBeginBarrier = imageBarrier(swapchain.images[imageIndex], 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, null, 0, null, 1, &renderBeginBarrier);
+
 		VkClearColorValue color;
 		color.float32 = [48.0f / 255.0f, 10.0f / 255.0f, 36.0f / 255.0f, 1.0f];
 		VkClearValue clearColor = { color: color };
@@ -319,6 +327,9 @@ void main()
 		vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
 		vkCmdEndRenderPass(commandBuffer);
+
+		VkImageMemoryBarrier renderEndBarrier = imageBarrier(swapchain.images[imageIndex], VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT, 0, null, 0, null, 1, &renderEndBarrier);
 
 		enforceVK(vkEndCommandBuffer(commandBuffer));
 
