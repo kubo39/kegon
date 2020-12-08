@@ -1,4 +1,5 @@
 version(Windows) import core.sys.windows.windows;
+import std.path;
 import std.stdio;
 import std.string;
 
@@ -8,6 +9,7 @@ import erupted;
 
 import kegon.common;
 import kegon.device;
+import kegon.shaders;
 import kegon.swapchain;
 
 mixin(bindGLFW_Vulkan);
@@ -81,22 +83,37 @@ VkRenderPass createRenderPass(VkDevice device, VkFormat colorFormat)
 		storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 		stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 	}
 
-	VkAttachmentReference colorAttachment = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
+	VkAttachmentReference colorAttachment = {
+		attachment: 0,
+		layout: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+	};
 	VkSubpassDescription subpass = {
 		pipelineBindPoint: VK_PIPELINE_BIND_POINT_GRAPHICS,
 		colorAttachmentCount: 1,
 		pColorAttachments: &colorAttachment,
 	};
+
+	VkSubpassDependency dependency = {
+		srcSubpass: VK_SUBPASS_EXTERNAL,
+		dstSubpass: 0,
+		srcStageMask: VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		srcAccessMask: 0,
+		dstStageMask: VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		dstAccessMask: VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+	};
+
 	VkRenderPassCreateInfo createInfo = {
 		sType: VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 		attachmentCount: 1,
 		pAttachments: attachments.ptr,
 		subpassCount: 1,
 		pSubpasses: &subpass,
+		dependencyCount: 1,
+		pDependencies: &dependency,
 	};
 	VkRenderPass renderPass;
 	enforceVK(vkCreateRenderPass(device, &createInfo, null, &renderPass));
@@ -148,7 +165,7 @@ void main()
 	uint physicalDeviceCount = cast(uint) physicalDevices.length;
 	enforceVK(vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices.ptr));
 	VkPhysicalDevice physicalDevice = pickPhysicalDevice(physicalDevices.ptr, physicalDeviceCount);
-	assert(physicalDevice != VkPhysicalDevice.init);
+	assert(physicalDevice);
 
 	uint extensionCount = 0;
 	enforceVK(vkEnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, null));
@@ -200,6 +217,21 @@ void main()
 	VkRenderPass renderPass = createRenderPass(device, swapchainFormat);
 	assert(renderPass);
 	scope(exit) vkDestroyRenderPass(device, renderPass, null);
+
+	VkShaderModule triangleVS = loadShader(device, buildPath("source", "kegon", "shaders", "triangle.vert.spv"));
+	assert(triangleVS);
+	scope(exit) vkDestroyShaderModule(device, triangleVS, null);
+	VkShaderModule triangleFS = loadShader(device, buildPath("source", "kegon", "shaders", "triangle.frag.spv"));
+	assert(triangleFS);
+	scope(exit) vkDestroyShaderModule(device, triangleFS, null);
+
+	VkPipelineLayout triangleLayout = createPipelineLayout(device);
+	assert(triangleLayout);
+	scope(exit) vkDestroyPipelineLayout(device, triangleLayout, null);
+
+	VkPipeline trianglePipeline = createGraphicsPipeline(device, renderPass, triangleVS, triangleFS, triangleLayout);
+	assert(trianglePipeline);
+	scope(exit) vkDestroyPipeline(device, trianglePipeline, null);
 
 	Swapchain swapchain;
 	createSwapchain(&swapchain, physicalDevice, device, surface, familyIndex, swapchainFormat);
@@ -261,9 +293,8 @@ void main()
 		};
 		enforceVK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
 
-		// TODO: not sure but could not fill the image.
 		VkClearColorValue color;
-		color.int32 = [1, 0, 1, 1];
+		color.float32 = [48.0f / 255.0f, 10.0f / 255.0f, 36.0f / 255.0f, 1.0f];
 		VkClearValue clearColor = { color: color };
 
 		VkRenderPassBeginInfo passBeginInfo = {
@@ -277,7 +308,14 @@ void main()
 		passBeginInfo.renderArea.extent.height = swapchain.height;
 		vkCmdBeginRenderPass(commandBuffer, &passBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-		// draw calls
+		VkViewport viewport = { 0.0f, cast(float) swapchain.height, cast(float) swapchain.width, -1 * cast(float) swapchain.height, 0.0f, 1.0f };
+		VkRect2D scissor = { { 0, 0 }, { swapchain.width, swapchain.height } };
+
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline);
+		vkCmdDraw(commandBuffer, 3, 1, 0, 0);
 
 		vkCmdEndRenderPass(commandBuffer);
 

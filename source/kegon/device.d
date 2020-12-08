@@ -46,7 +46,7 @@ uint getGraphicsFamilyIndex(VkPhysicalDevice physicalDevice)
 {
 	uint queueCount;
 	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, null);
-
+	assert(queueCount > 0);
 	auto queues = new VkQueueFamilyProperties[](queueCount);
 	vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueCount, queues.ptr);
 
@@ -57,7 +57,6 @@ uint getGraphicsFamilyIndex(VkPhysicalDevice physicalDevice)
 			return i;
 		}
 	}
-
 	return VK_QUEUE_FAMILY_IGNORED;
 }
 
@@ -112,12 +111,12 @@ VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint phys
 
 VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint familyIndex)
 {
-	float[1] queuePriorities = [1.0f];
+	float queuePriorities = 1.0f;
 	VkDeviceQueueCreateInfo queueInfo = {
 		sType: VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 		queueFamilyIndex: familyIndex,
 		queueCount: 1,
-		pQueuePriorities: queuePriorities.ptr,
+		pQueuePriorities: &queuePriorities,
 	};
 
 	const(char)*[] extensions = [
@@ -146,8 +145,8 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 
 	VkDeviceCreateInfo createInfo = {
 		sType: VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		queueCreateInfoCount: 1,
 		pQueueCreateInfos: &queueInfo,
+		queueCreateInfoCount: 1,
 		ppEnabledExtensionNames: extensions.ptr,
 		enabledExtensionCount: cast(uint) extensions.length,
 		pNext: &features,
