@@ -121,41 +121,6 @@ VkRenderPass createRenderPass(VkDevice device, VkFormat colorFormat)
 	return renderPass;
 }
 
-VkFramebuffer createFramebuffer(VkDevice device, VkRenderPass renderPass, VkImageView colorView, uint width, uint height)
-{
-	VkFramebufferCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-		renderPass: renderPass,
-		attachmentCount: 1,
-		pAttachments: &colorView,
-		width: width,
-		height: height,
-		layers: 1,
-	};
-	VkFramebuffer framebuffer;
-	enforceVK(vkCreateFramebuffer(device, &createInfo, null, &framebuffer));
-	return framebuffer;
-}
-
-VkImageView createImageView(VkDevice device, VkImage image, VkFormat format)
-{
-	VkImageSubresourceRange subresourceRange = {
-		aspectMask: VK_IMAGE_ASPECT_COLOR_BIT,
-		levelCount: 1,
-		layerCount: 1,
-	};
-	VkImageViewCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-		image: image,
-		viewType: VK_IMAGE_VIEW_TYPE_2D,
-		format: format,
-		subresourceRange: subresourceRange,
-	};
-	VkImageView view;
-	enforceVK(vkCreateImageView(device, &createInfo, null, &view));
-	return view;
-}
-
 void main()
 {
 	VkInstance instance = createInstance();
@@ -240,36 +205,8 @@ void main()
 	scope(exit) vkDestroyPipeline(device, trianglePipeline, null);
 
 	Swapchain swapchain;
-	createSwapchain(&swapchain, physicalDevice, device, surface, familyIndex, swapchainFormat);
+	createSwapchain(&swapchain, physicalDevice, device, surface, familyIndex, swapchainFormat, renderPass, VK_NULL_HANDLE);
 	scope(exit) destroySwapchain(device, &swapchain);
-
-	auto swapchainImageViews = new VkImageView[](swapchain.imageCount);
-	foreach (uint i; 0 .. swapchain.imageCount)
-	{
-		swapchainImageViews[i] = createImageView(device, swapchain.images[i], swapchainFormat);
-		assert(swapchainImageViews[i]);
-	}
-	scope(exit)
-	{
-		foreach (uint i; 0 .. swapchain.imageCount)
-		{
-			vkDestroyImageView(device, swapchainImageViews[i], null);
-		}
-	}
-
-	auto swapchainFramebuffers = new VkFramebuffer[](swapchain.imageCount);
-	foreach (uint i; 0 .. swapchain.imageCount)
-	{
-		swapchainFramebuffers[i] = createFramebuffer(device, renderPass, swapchainImageViews[i], swapchain.width, swapchain.height);
-		assert(swapchainFramebuffers[i]);
-	}
-	scope(exit)
-	{
-		foreach (uint i; 0 .. swapchain.imageCount)
-		{
-			vkDestroyFramebuffer(device, swapchainFramebuffers[i], null);
-		}
-	}
 
 	VkCommandPool commandPool = createCommandPool(device, familyIndex);
 	assert(commandPool);
@@ -287,6 +224,13 @@ void main()
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
+
+		SwapchainStatus swapchainStatus = updateSwapchain(&swapchain, physicalDevice, device, surface, familyIndex, swapchainFormat, renderPass);
+
+		if (swapchainStatus == SwapchainStatus.NotReady)
+		{
+			continue;
+		}
 
 		uint imageIndex = 0;
 		enforceVK(vkAcquireNextImageKHR(device, swapchain.swapchain, ~0UL, acquireSemaphore, VK_NULL_HANDLE, &imageIndex));
@@ -309,7 +253,7 @@ void main()
 		VkRenderPassBeginInfo passBeginInfo = {
 			sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 			renderPass: renderPass,
-			framebuffer: swapchainFramebuffers[imageIndex],
+			framebuffer: swapchain.framebuffers[imageIndex],
 			clearValueCount: 1,
 			pClearValues: &clearColor,
 		};
