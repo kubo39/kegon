@@ -181,25 +181,25 @@ public:
 
 struct ObjFile
 {
-    // positions; stride 3 (xyz)
-    float* v;
-    size_t v_size;
-    size_t v_cap;
+	// positions; stride 3 (xyz)
+	float* v;
+	size_t v_size;
+	size_t v_cap;
 
-    // texture coordinates; stride 3 (uvw)
-    float* vt;
-    size_t vt_size;
-    size_t vt_cap;
+	// texture coordinates; stride 3 (uvw)
+	float* vt;
+	size_t vt_size;
+	size_t vt_cap;
 
-    // vertex normals; stride 3 (xyz)
+	// vertex normals; stride 3 (xyz)
 	float* vn;
 	size_t vn_size;
-    size_t vn_cap;
+	size_t vn_cap;
 
-    // face elements; stride 9 (3 groups of indices into v/vt/vn)
+	// face elements; stride 9 (3 groups of indices into v/vt/vn)
 	int* f;
 	size_t f_size;
-    size_t f_cap;
+	size_t f_cap;
 
 	~this()
 	{
@@ -303,9 +303,9 @@ void objParseLine(ref ObjFile result, const(char)* line)
 bool objParseFile(ref ObjFile result, const(char)* path)
 {
 	auto file = fopen(path, "rb");
-    if (!file)
-        return false;
-    scope(exit) fclose(file);
+	if (!file)
+		return false;
+	scope(exit) fclose(file);
 
 	char[65536] buffer;
 	size_t size = 0;
