@@ -47,8 +47,26 @@ VkPipeline createGraphicsPipeline(VkDevice device, VkRenderPass renderPass, VkSh
     stages[1].Module = fs;
     stages[1].pName = "main";
 
+    // legacy FFP IA
+    VkVertexInputBindingDescription stream = { 0, 32, VK_VERTEX_INPUT_RATE_VERTEX };
+    VkVertexInputAttributeDescription[3] attrs;
+
+    attrs[0].location = 0;
+    attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrs[0].offset = 0;
+    attrs[1].location = 1;
+    attrs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attrs[1].offset = 12;
+    attrs[2].location = 2;
+    attrs[2].format = VK_FORMAT_R32G32_SFLOAT;
+    attrs[2].offset = 24;
+
     VkPipelineVertexInputStateCreateInfo vertexInput = {
         sType: VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        vertexBindingDescriptionCount: 1,
+        pVertexBindingDescriptions: &stream,
+        vertexAttributeDescriptionCount: 3,
+        pVertexAttributeDescriptions: attrs.ptr,
     };
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {

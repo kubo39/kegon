@@ -1,4 +1,5 @@
 version(Windows) import core.sys.windows.windows;
+import core.stdc.string : memcpy;
 import std.path;
 import std.stdio;
 import std.string;
@@ -9,6 +10,7 @@ import erupted;
 
 import kegon.common;
 import kegon.device;
+import kegon.objparser;
 import kegon.resources;
 import kegon.shaders;
 import kegon.swapchain;
@@ -121,8 +123,132 @@ VkRenderPass createRenderPass(VkDevice device, VkFormat colorFormat)
 	return renderPass;
 }
 
-void main()
+align(16) struct Vertex
 {
+	float vx, vy, vz;
+	float nx, ny, nz;
+	float tu, tv;
+}
+
+align(16) struct Mesh
+{
+	Vertex[] vertices;
+	uint[] indices;
+}
+
+bool loadMesh(ref Mesh result, string path)
+{
+	import std.string : toStringz;
+
+	ObjFile file;
+	if (!objParseFile(file, path.toStringz))
+	{
+		return false;
+	}
+	assert(objValidate(file));
+
+	size_t indexCount = file.f_size / 3;
+
+	auto vertices = new Vertex[](indexCount);
+
+	foreach (i; 0 .. indexCount)
+	{
+		auto v = &vertices[i];
+
+		int vi = file.f[i * 3 + 0];
+		int vti = file.f[i * 3 + 1];
+		int vni = file.f[i * 3 + 2];
+
+		v.vx = file.v[vi * 3 + 0];
+		v.vy = file.v[vi * 3 + 1];
+		v.vz = file.v[vi * 3 + 2];
+		v.nx = vni < 0 ? 0.0f : file.vn[vni * 3 + 0];
+		v.ny = vni < 0 ? 0.0f : file.vn[vni * 3 + 1];
+		v.nz = vni < 0 ? 1.0f : file.vn[vni * 3 + 2];
+		v.tu = vti < 0 ? 0.0f : file.vt[vti * 3 + 0];
+		v.tv = vti < 0 ? 0.0f : file.vt[vti * 3 + 1];
+	}
+
+	result.vertices = vertices;
+	result.indices = new uint[](indexCount);
+	foreach (i; 0 .. indexCount)
+	{
+		result.indices[i] = cast(uint) i;
+	}
+
+	return true;
+}
+
+struct Buffer
+{
+	VkBuffer buffer;
+	VkDeviceMemory memory;
+	void* data;
+	size_t size;
+}
+
+uint selectMemoryType(const ref VkPhysicalDeviceMemoryProperties memoryProperties, uint memoryTypeBits, VkMemoryPropertyFlags flags)
+{
+	foreach (i; 0 .. memoryProperties.memoryTypeCount)
+	{
+		if ((memoryTypeBits & (1 << i)) != 0 && (memoryProperties.memoryTypes[i].propertyFlags & flags) == flags)
+		{
+			return i;
+		}
+	}
+	assert(false, "No compatible memory type found");
+}
+
+void createBuffer(ref Buffer result, VkDevice device, const ref VkPhysicalDeviceMemoryProperties memoryProperties, size_t size, VkBufferUsageFlags usage)
+{
+	VkBufferCreateInfo createInfo = {
+		sType: VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		size: size,
+		usage: usage,
+	};
+
+	VkBuffer buffer;
+	enforceVK(vkCreateBuffer(device, &createInfo, null, &buffer));
+
+	VkMemoryRequirements memoryRequirements;
+	vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
+
+	uint memoryTypeIndex = selectMemoryType(memoryProperties, memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	VkMemoryAllocateInfo allocateInfo = {
+		sType: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		allocationSize: memoryRequirements.size,
+		memoryTypeIndex: memoryTypeIndex,
+	};
+
+	VkDeviceMemory memory;
+	enforceVK(vkAllocateMemory(device, &allocateInfo, null, &memory));
+
+	enforceVK(vkBindBufferMemory(device, buffer, memory, 0));
+
+	void* data;
+	enforceVK(vkMapMemory(device, memory, 0, size, 0, &data));
+
+	result.buffer = buffer;
+	result.memory = memory;
+	result.data = data;
+	result.size = size;
+}
+
+void destroyBuffer(ref Buffer buffer, VkDevice device)
+{
+	vkFreeMemory(device, buffer.memory, null);
+	vkDestroyBuffer(device, buffer.buffer, null);
+}
+
+void main(string[] args)
+{
+	if (args.length < 2)
+	{
+		writefln("Usage: %s [mesh]", args[0]);
+		assert(false);
+	}
+
 	VkInstance instance = createInstance();
 	scope(exit) vkDestroyInstance(instance, null);
 	kegon.common.loadInstanceLevelFunctions(instance);
@@ -221,6 +347,31 @@ void main()
 	VkCommandBuffer commandBuffer;
 	enforceVK(vkAllocateCommandBuffers(device, &allocateInfo, &commandBuffer));
 
+	VkPhysicalDeviceMemoryProperties memoryProperties;
+	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memoryProperties);
+
+	Mesh mesh;
+	bool rcm = loadMesh(mesh, args[1]);
+	assert(rcm);
+
+	Buffer vb;
+	createBuffer(vb, device, memoryProperties, 128 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	assert(vb.buffer);
+	assert(vb.memory);
+	scope(exit) destroyBuffer(vb, device);
+
+	Buffer ib;
+	createBuffer(ib, device, memoryProperties, 128 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	assert(ib.buffer);
+	assert(ib.memory);
+	scope(exit) destroyBuffer(ib, device);
+
+	assert(vb.size >= mesh.vertices.length * Vertex.sizeof);
+	memcpy(vb.data, mesh.vertices.ptr, mesh.vertices.length * Vertex.sizeof);
+
+	assert(ib.size >= mesh.indices.length * uint.sizeof);
+	memcpy(ib.data, mesh.indices.ptr, mesh.indices.length * uint.sizeof);
+
 	while (!glfwWindowShouldClose(window))
 	{
 		glfwPollEvents();
@@ -268,7 +419,11 @@ void main()
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline);
-		vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+
+		VkDeviceSize dummyOffset = 0;
+		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb.buffer, &dummyOffset);
+		vkCmdBindIndexBuffer(commandBuffer, ib.buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(commandBuffer, cast(uint) mesh.indices.length, 1, 0, 0, 0);
 
 		vkCmdEndRenderPass(commandBuffer);
 
