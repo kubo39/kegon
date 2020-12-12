@@ -162,6 +162,7 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 
 	const(char)*[] extensions = [
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 	];
 
 	VkPhysicalDeviceFeatures2 features = {
@@ -172,18 +173,6 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 	features.features.shaderInt16 = true;
 	features.features.shaderInt64 = true;
 
-	VkPhysicalDeviceVulkan12Features features12 = {
-		sType: VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
-		drawIndirectCount: true,
-		storageBuffer8BitAccess: true,
-		uniformAndStorageBuffer8BitAccess: true,
-		storagePushConstant8: true,
-		shaderFloat16: true,
-		shaderInt8: true,
-		samplerFilterMinmax: true,
-		scalarBlockLayout: true,
-	};
-
 	VkDeviceCreateInfo createInfo = {
 		sType: VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 		pQueueCreateInfos: &queueInfo,
@@ -192,7 +181,6 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 		enabledExtensionCount: cast(uint) extensions.length,
 		pNext: &features,
 	};
-	features.pNext = &features12;
 
 	VkDevice device;
 	enforceVK(vkCreateDevice(physicalDevice, &createInfo, null, &device));

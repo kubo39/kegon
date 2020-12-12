@@ -25,13 +25,35 @@ VkShaderModule loadShader(VkDevice device, string path)
     return shaderModule;
 }
 
-VkPipelineLayout createPipelineLayout(VkDevice device)
+VkDescriptorSetLayout createSetLayout(VkDevice device)
+{
+	VkDescriptorSetLayoutBinding setBinding = {
+		binding: 0,
+		descriptorType: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+		descriptorCount: 1,
+		stageFlags: VK_SHADER_STAGE_VERTEX_BIT,
+	};
+	VkDescriptorSetLayoutCreateInfo createInfo = {
+		sType: VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+		flags: VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+		bindingCount: 1,
+		pBindings: &setBinding,
+	};
+	VkDescriptorSetLayout setLayout;
+	enforceVK(vkCreateDescriptorSetLayout(device, &createInfo, null, &setLayout));
+	return setLayout;	
+}
+
+VkPipelineLayout createPipelineLayout(VkDevice device, VkDescriptorSetLayout setLayout)
 {
     VkPipelineLayoutCreateInfo createInfo = {
         sType: VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		setLayoutCount: 1,
+		pSetLayouts: &setLayout,
     };
     VkPipelineLayout layout;
     enforceVK(vkCreatePipelineLayout(device, &createInfo, null, &layout));
+
     return layout;
 }
 
@@ -47,26 +69,8 @@ VkPipeline createGraphicsPipeline(VkDevice device, VkRenderPass renderPass, VkSh
     stages[1].Module = fs;
     stages[1].pName = "main";
 
-    // legacy FFP IA
-    VkVertexInputBindingDescription stream = { 0, 32, VK_VERTEX_INPUT_RATE_VERTEX };
-    VkVertexInputAttributeDescription[3] attrs;
-
-    attrs[0].location = 0;
-    attrs[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attrs[0].offset = 0;
-    attrs[1].location = 1;
-    attrs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attrs[1].offset = 12;
-    attrs[2].location = 2;
-    attrs[2].format = VK_FORMAT_R32G32_SFLOAT;
-    attrs[2].offset = 24;
-
     VkPipelineVertexInputStateCreateInfo vertexInput = {
         sType: VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-        vertexBindingDescriptionCount: 1,
-        pVertexBindingDescriptions: &stream,
-        vertexAttributeDescriptionCount: 3,
-        pVertexAttributeDescriptions: attrs.ptr,
     };
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {

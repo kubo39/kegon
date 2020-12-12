@@ -179,68 +179,6 @@ bool loadMesh(ref Mesh result, string path)
 	return true;
 }
 
-struct Buffer
-{
-	VkBuffer buffer;
-	VkDeviceMemory memory;
-	void* data;
-	size_t size;
-}
-
-uint selectMemoryType(const ref VkPhysicalDeviceMemoryProperties memoryProperties, uint memoryTypeBits, VkMemoryPropertyFlags flags)
-{
-	foreach (i; 0 .. memoryProperties.memoryTypeCount)
-	{
-		if ((memoryTypeBits & (1 << i)) != 0 && (memoryProperties.memoryTypes[i].propertyFlags & flags) == flags)
-		{
-			return i;
-		}
-	}
-	assert(false, "No compatible memory type found");
-}
-
-void createBuffer(ref Buffer result, VkDevice device, const ref VkPhysicalDeviceMemoryProperties memoryProperties, size_t size, VkBufferUsageFlags usage)
-{
-	VkBufferCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		size: size,
-		usage: usage,
-	};
-
-	VkBuffer buffer;
-	enforceVK(vkCreateBuffer(device, &createInfo, null, &buffer));
-
-	VkMemoryRequirements memoryRequirements;
-	vkGetBufferMemoryRequirements(device, buffer, &memoryRequirements);
-
-	uint memoryTypeIndex = selectMemoryType(memoryProperties, memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	VkMemoryAllocateInfo allocateInfo = {
-		sType: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-		allocationSize: memoryRequirements.size,
-		memoryTypeIndex: memoryTypeIndex,
-	};
-
-	VkDeviceMemory memory;
-	enforceVK(vkAllocateMemory(device, &allocateInfo, null, &memory));
-
-	enforceVK(vkBindBufferMemory(device, buffer, memory, 0));
-
-	void* data;
-	enforceVK(vkMapMemory(device, memory, 0, size, 0, &data));
-
-	result.buffer = buffer;
-	result.memory = memory;
-	result.data = data;
-	result.size = size;
-}
-
-void destroyBuffer(ref Buffer buffer, VkDevice device)
-{
-	vkFreeMemory(device, buffer.memory, null);
-	vkDestroyBuffer(device, buffer.buffer, null);
-}
-
 void main(string[] args)
 {
 	if (args.length < 2)
@@ -322,7 +260,11 @@ void main(string[] args)
 	assert(triangleFS);
 	scope(exit) vkDestroyShaderModule(device, triangleFS, null);
 
-	VkPipelineLayout triangleLayout = createPipelineLayout(device);
+	VkDescriptorSetLayout setLayout = createSetLayout(device);
+	assert(setLayout);
+	scope(exit) vkDestroyDescriptorSetLayout(device, setLayout, null);
+
+	VkPipelineLayout triangleLayout = createPipelineLayout(device, setLayout);
 	assert(triangleLayout);
 	scope(exit) vkDestroyPipelineLayout(device, triangleLayout, null);
 
@@ -355,13 +297,13 @@ void main(string[] args)
 	assert(rcm);
 
 	Buffer vb;
-	createBuffer(vb, device, memoryProperties, 128 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	createBuffer(vb, device, memoryProperties, 128 * 1024 * 1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 	assert(vb.buffer);
 	assert(vb.memory);
 	scope(exit) destroyBuffer(vb, device);
 
 	Buffer ib;
-	createBuffer(ib, device, memoryProperties, 128 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+	createBuffer(ib, device, memoryProperties, 128 * 1024 * 1024, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 	assert(ib.buffer);
 	assert(ib.memory);
 	scope(exit) destroyBuffer(ib, device);
@@ -420,8 +362,21 @@ void main(string[] args)
 
 		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline);
 
-		VkDeviceSize dummyOffset = 0;
-		vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vb.buffer, &dummyOffset);
+		VkDescriptorBufferInfo bufferInfo = {
+			buffer: vb.buffer,
+			offset: 0,
+			range: vb.size,
+		};
+
+		VkWriteDescriptorSet descriptor = {
+			sType: VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+			dstBinding: 0,
+			descriptorCount: 1,
+			descriptorType: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+			pBufferInfo: &bufferInfo,
+		};
+		vkCmdPushDescriptorSetKHR(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, triangleLayout, 0, 1, &descriptor);
+
 		vkCmdBindIndexBuffer(commandBuffer, ib.buffer, 0, VK_INDEX_TYPE_UINT32);
 		vkCmdDrawIndexed(commandBuffer, cast(uint) mesh.indices.length, 1, 0, 0, 0);
 
