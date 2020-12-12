@@ -198,7 +198,7 @@ SwapchainStatus updateSwapchain(Swapchain* result, VkPhysicalDevice physicalDevi
 		return SwapchainStatus.NotReady;
 	}
 
-	if (result.width == newWidth && result.height)
+	if (result.width == newWidth && result.height == newHeight)
 	{
 		return SwapchainStatus.Ready;
 	}
