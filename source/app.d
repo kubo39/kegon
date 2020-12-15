@@ -123,14 +123,14 @@ VkRenderPass createRenderPass(VkDevice device, VkFormat colorFormat)
 	return renderPass;
 }
 
-align(16) struct Vertex
+struct Vertex
 {
 	float vx, vy, vz;
-	float nx, ny, nz;
+	ubyte nx, ny, nz, nw;
 	float tu, tv;
 }
 
-align(16) struct Mesh
+struct Mesh
 {
 	Vertex[] vertices;
 	uint[] indices;
@@ -159,12 +159,16 @@ bool loadMesh(ref Mesh result, string path)
 		int vti = file.f[i * 3 + 1];
 		int vni = file.f[i * 3 + 2];
 
+		float nx = vni < 0 ? 0.0f : file.vn[vni * 3 + 0];
+		float ny = vni < 0 ? 0.0f : file.vn[vni * 3 + 1];
+		float nz = vni < 0 ? 1.0f : file.vn[vni * 3 + 2];
+
 		v.vx = file.v[vi * 3 + 0];
 		v.vy = file.v[vi * 3 + 1];
 		v.vz = file.v[vi * 3 + 2];
-		v.nx = vni < 0 ? 0.0f : file.vn[vni * 3 + 0];
-		v.ny = vni < 0 ? 0.0f : file.vn[vni * 3 + 1];
-		v.nz = vni < 0 ? 1.0f : file.vn[vni * 3 + 2];
+		v.nx = cast(ubyte) (nx * 127.0f + 127.5f);
+		v.ny = cast(ubyte) (ny * 127.0f + 127.5f);
+		v.nz = cast(ubyte) (nz * 127.0f + 127.5f);
 		v.tu = vti < 0 ? 0.0f : file.vt[vti * 3 + 0];
 		v.tv = vti < 0 ? 0.0f : file.vt[vti * 3 + 1];
 	}

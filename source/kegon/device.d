@@ -165,13 +165,17 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 		VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
 	];
 
+	VkPhysicalDeviceVulkan12Features features12 = {
+		sType: VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
+		storageBuffer8BitAccess: true,
+		uniformAndStorageBuffer8BitAccess: true,
+		shaderInt8: true,
+	};
+
 	VkPhysicalDeviceFeatures2 features = {
 		sType: VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+		pNext: &features12,
 	};
-	features.features.multiDrawIndirect = true;
-	features.features.pipelineStatisticsQuery = true;
-	features.features.shaderInt16 = true;
-	features.features.shaderInt64 = true;
 
 	VkDeviceCreateInfo createInfo = {
 		sType: VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
