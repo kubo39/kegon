@@ -206,6 +206,15 @@ void main(string[] args)
 	auto extensions = new VkExtensionProperties[](extensionCount);
 	enforceVK(vkEnumerateDeviceExtensionProperties(physicalDevice, null, &extensionCount, extensions.ptr));
 
+	bool pushDescriptorsSupported = false;
+	bool meshShadingSupported = false;
+
+	foreach (extension; extensions)
+	{
+		pushDescriptorsSupported = pushDescriptorsSupported || (extension.extensionName.ptr.fromStringz == VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
+		meshShadingSupported = meshShadingSupported || (extension.extensionName.ptr.fromStringz == VK_NV_MESH_SHADER_EXTENSION_NAME);
+	}
+
 	VkPhysicalDeviceProperties props;
 	vkGetPhysicalDeviceProperties(physicalDevice, &props);
 	assert(props.limits.timestampComputeAndGraphics);
@@ -213,7 +222,7 @@ void main(string[] args)
 	const uint familyIndex = getGraphicsFamilyIndex(physicalDevice);
 	assert(familyIndex != VK_QUEUE_FAMILY_IGNORED);
 
-	VkDevice device = createDevice(instance, physicalDevice, familyIndex);
+	VkDevice device = createDevice(instance, physicalDevice, familyIndex, pushDescriptorsSupported, meshShadingSupported);
 	scope(exit)
 	{
 		vkDeviceWaitIdle(device);
