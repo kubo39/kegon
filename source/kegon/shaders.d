@@ -16,7 +16,6 @@ VkShaderModule loadShader(VkDevice device, string path)
     assert(length % 4 == 0);
 
     VkShaderModuleCreateInfo createInfo = {
-        sType: VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         codeSize: length,
         pCode: cast(const(uint)*) buffer,
     };
@@ -34,7 +33,6 @@ VkDescriptorSetLayout createSetLayout(VkDevice device)
 		stageFlags: VK_SHADER_STAGE_VERTEX_BIT,
 	};
 	VkDescriptorSetLayoutCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		flags: VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
 		bindingCount: 1,
 		pBindings: &setBinding,
@@ -47,7 +45,6 @@ VkDescriptorSetLayout createSetLayout(VkDevice device)
 VkPipelineLayout createPipelineLayout(VkDevice device, VkDescriptorSetLayout setLayout)
 {
     VkPipelineLayoutCreateInfo createInfo = {
-        sType: VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		setLayoutCount: 1,
 		pSetLayouts: &setLayout,
     };
@@ -69,23 +66,18 @@ VkPipeline createGraphicsPipeline(VkDevice device, VkRenderPass renderPass, VkSh
     stages[1].Module = fs;
     stages[1].pName = "main";
 
-    VkPipelineVertexInputStateCreateInfo vertexInput = {
-        sType: VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-    };
+    VkPipelineVertexInputStateCreateInfo vertexInput;
 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
-        sType: VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
         topology: VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
     };
 
     VkPipelineViewportStateCreateInfo viewportState = {
-        sType: VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         viewportCount: 1,
         scissorCount: 1,
     };
 
     VkPipelineRasterizationStateCreateInfo rasterizationState = {
-        sType: VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
         depthClampEnable: VK_FALSE,
         lineWidth: 1.0f,
         depthBiasEnable: VK_FALSE,
@@ -93,19 +85,15 @@ VkPipeline createGraphicsPipeline(VkDevice device, VkRenderPass renderPass, VkSh
     };
 
     VkPipelineMultisampleStateCreateInfo multisampeState = {
-        sType: VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
         rasterizationSamples: VK_SAMPLE_COUNT_1_BIT,
     };
 
-    VkPipelineDepthStencilStateCreateInfo depthStencilState = {
-        sType: VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-    };
+    VkPipelineDepthStencilStateCreateInfo depthStencilState;
 
     VkPipelineColorBlendAttachmentState colorAttachmentState;
     colorAttachmentState.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
     VkPipelineColorBlendStateCreateInfo colorBlendState = {
-        sType: VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         attachmentCount: 1,
         pAttachments: &colorAttachmentState,
     };
@@ -115,13 +103,11 @@ VkPipeline createGraphicsPipeline(VkDevice device, VkRenderPass renderPass, VkSh
         VK_DYNAMIC_STATE_SCISSOR
     ];
     VkPipelineDynamicStateCreateInfo dynamicState = {
-        sType: VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
         dynamicStateCount: cast(uint) dynamicStates.length,
         pDynamicStates: dynamicStates.ptr,
     };
 
     VkGraphicsPipelineCreateInfo createInfo = {
-        sType: VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         stageCount: 2,
         pStages: stages.ptr,
         pVertexInputState: &vertexInput,

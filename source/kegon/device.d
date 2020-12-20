@@ -11,13 +11,11 @@ import kegon.common;
 VkInstance createInstance()
 {
 	VkApplicationInfo appInfo = {
-		sType: VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		pNext: null,
 		apiVersion: VK_API_VERSION_1_2,
 	};
 
 	VkInstanceCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		pNext: null,
 		pApplicationInfo: &appInfo,
 	};
@@ -74,7 +72,6 @@ extern (Windows) VkBool32 debugReportCallback(VkDebugReportFlagsEXT flags, VkDeb
 VkDebugReportCallbackEXT registerDebugCallback(VkInstance instance)
 {
 	VkDebugReportCallbackCreateInfoEXT createInfo = {
-		sType: VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
 		flags: VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT | VK_DEBUG_REPORT_ERROR_BIT_EXT,
 		pfnCallback: &debugReportCallback,
 	};
@@ -154,7 +151,6 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 {
 	float queuePriorities = 1.0f;
 	VkDeviceQueueCreateInfo queueInfo = {
-		sType: VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 		queueFamilyIndex: familyIndex,
 		queueCount: 1,
 		pQueuePriorities: &queuePriorities,
@@ -166,19 +162,16 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 	];
 
 	VkPhysicalDeviceVulkan12Features features12 = {
-		sType: VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES,
 		storageBuffer8BitAccess: true,
 		uniformAndStorageBuffer8BitAccess: true,
 		shaderInt8: true,
 	};
 
 	VkPhysicalDeviceFeatures2 features = {
-		sType: VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
 		pNext: &features12,
 	};
 
 	VkDeviceCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 		pQueueCreateInfos: &queueInfo,
 		queueCreateInfoCount: 1,
 		ppEnabledExtensionNames: extensions.ptr,

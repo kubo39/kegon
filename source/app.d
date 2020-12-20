@@ -55,9 +55,7 @@ shared static ~this()
 
 VkSemaphore createSemaphore(VkDevice device)
 {
-	VkSemaphoreCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
-	};
+	VkSemaphoreCreateInfo createInfo;
 	VkSemaphore semaphore;
 	enforceVK(vkCreateSemaphore(device, &createInfo, null, &semaphore));
 	return semaphore;
@@ -66,7 +64,6 @@ VkSemaphore createSemaphore(VkDevice device)
 VkCommandPool createCommandPool(VkDevice device, uint familyIndex)
 {
 	VkCommandPoolCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		flags: VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
 		queueFamilyIndex: familyIndex,
 	};
@@ -110,7 +107,6 @@ VkRenderPass createRenderPass(VkDevice device, VkFormat colorFormat)
 	};
 
 	VkRenderPassCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 		attachmentCount: 1,
 		pAttachments: attachments.ptr,
 		subpassCount: 1,
@@ -285,7 +281,6 @@ void main(string[] args)
 	scope(exit) vkDestroyCommandPool(device, commandPool, null);
 
 	VkCommandBufferAllocateInfo allocateInfo = {
-		sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		commandPool: commandPool,
 		level: VK_COMMAND_BUFFER_LEVEL_PRIMARY,
 		commandBufferCount: 1,
@@ -335,7 +330,6 @@ void main(string[] args)
 		enforceVK(vkResetCommandPool(device, commandPool, 0));
 
 		VkCommandBufferBeginInfo beginInfo = {
-			sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
 		};
 		enforceVK(vkBeginCommandBuffer(commandBuffer, &beginInfo));
@@ -348,7 +342,6 @@ void main(string[] args)
 		VkClearValue clearColor = { color: color };
 
 		VkRenderPassBeginInfo passBeginInfo = {
-			sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 			renderPass: renderPass,
 			framebuffer: swapchain.framebuffers[imageIndex],
 			clearValueCount: 1,
@@ -373,7 +366,6 @@ void main(string[] args)
 		};
 
 		VkWriteDescriptorSet descriptor = {
-			sType: VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 			dstBinding: 0,
 			descriptorCount: 1,
 			descriptorType: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -393,7 +385,6 @@ void main(string[] args)
 
 		VkPipelineStageFlags submitStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		VkSubmitInfo submitInfo = {
-			sType: VK_STRUCTURE_TYPE_SUBMIT_INFO,
 			waitSemaphoreCount: 1,
 			pWaitSemaphores: &acquireSemaphore,
 			pWaitDstStageMask: &submitStageMask,
@@ -405,7 +396,6 @@ void main(string[] args)
 		enforceVK(vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE));
 
 		VkPresentInfoKHR presentInfo = {
-			sType: VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 			waitSemaphoreCount: 1,
 			pWaitSemaphores: &releaseSemaphore,
 			pSwapchains: &swapchain.swapchain,

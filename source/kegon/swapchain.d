@@ -23,7 +23,6 @@ VkSurfaceKHR createSurface(VkInstance instance, GLFWwindow* window)
 	version(Windows)
 	{
 		VkWin32SurfaceCreateInfoKHR createInfo = {
-			sType: VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
 			hinstance: GetModuleHandle(null),
 			hwnd: glfwGetWin32Window(window),
 		};
@@ -60,7 +59,6 @@ VkFormat getSwapchainFormat(VkPhysicalDevice physicalDevice, VkSurfaceKHR surfac
 VkFramebuffer createFramebuffer(VkDevice device, VkRenderPass renderPass, VkImageView colorView, uint width, uint height)
 {
 	VkFramebufferCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 		renderPass: renderPass,
 		attachmentCount: 1,
 		pAttachments: &colorView,
@@ -81,7 +79,6 @@ VkImageView createImageView(VkDevice device, VkImage image, VkFormat format)
 		layerCount: 1,
 	};
 	VkImageViewCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 		image: image,
 		viewType: VK_IMAGE_VIEW_TYPE_2D,
 		format: format,
@@ -104,7 +101,6 @@ VkSwapchainKHR createSwapchain(VkDevice device, VkSurfaceKHR surface, VkSurfaceC
 		: VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
 
 	VkSwapchainCreateInfoKHR createInfo = {
-		sType: VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		surface: surface,
 		minImageCount: max(2, surfaceCaps.minImageCount),
 		imageFormat: format,

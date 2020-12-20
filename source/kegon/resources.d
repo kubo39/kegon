@@ -12,7 +12,6 @@ VkImageMemoryBarrier imageBarrier(VkImage image, VkAccessFlags srcAccessMask, Vk
         layerCount: VK_REMAINING_ARRAY_LAYERS,
     };
     VkImageMemoryBarrier result = {
-        sType: VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
         srcAccessMask: srcAccessMask,
         dstAccessMask: dstAccessMask,
         oldLayout: oldLayout,
@@ -48,7 +47,6 @@ private uint selectMemoryType(const ref VkPhysicalDeviceMemoryProperties memoryP
 void createBuffer(ref Buffer result, VkDevice device, const ref VkPhysicalDeviceMemoryProperties memoryProperties, size_t size, VkBufferUsageFlags usage)
 {
 	VkBufferCreateInfo createInfo = {
-		sType: VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		size: size,
 		usage: usage,
 	};
@@ -62,7 +60,6 @@ void createBuffer(ref Buffer result, VkDevice device, const ref VkPhysicalDevice
 	uint memoryTypeIndex = selectMemoryType(memoryProperties, memoryRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	VkMemoryAllocateInfo allocateInfo = {
-		sType: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		allocationSize: memoryRequirements.size,
 		memoryTypeIndex: memoryTypeIndex,
 	};
