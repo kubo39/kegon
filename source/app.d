@@ -183,7 +183,7 @@ void main(string[] args)
 {
 	if (args.length < 2)
 	{
-		writefln("Usage: %s [mesh]", args[0]);
+		stderr.writefln("Usage: %s [mesh]", args[0]);
 		assert(false);
 	}
 
