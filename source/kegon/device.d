@@ -12,7 +12,7 @@ VkInstance createInstance()
 {
 	VkApplicationInfo appInfo = {
 		pNext: null,
-		apiVersion: VK_API_VERSION_1_2,
+		apiVersion: VK_MAKE_VERSION(1, 2, 0),
 	};
 
 	VkInstanceCreateInfo createInfo = {
@@ -119,7 +119,7 @@ VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint phys
 		{
 			continue;
 		}
-		if (props.apiVersion < VK_API_VERSION_1_2)
+		if (props.apiVersion < VK_MAKE_VERSION(1, 2, 0))
 		{
 			continue;
 		}

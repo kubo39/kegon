@@ -1,8 +1,8 @@
 {
 	"fileVersion": 1,
 	"versions": {
-		"bindbc-glfw": "0.10.1",
-		"bindbc-loader": "0.3.2",
-		"erupted": "2.1.12+v1.2.162"
+		"bindbc-glfw": "1.0.0",
+		"bindbc-loader": "1.0.1",
+		"erupted": "2.1.45+v1.2.195"
 	}
 }
