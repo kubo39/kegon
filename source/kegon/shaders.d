@@ -26,12 +26,16 @@ VkShaderModule loadShader(VkDevice device, string path)
 
 VkDescriptorSetLayout createSetLayout(VkDevice device)
 {
-	VkDescriptorSetLayoutBinding setBinding = {
-		binding: 0,
-		descriptorType: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		descriptorCount: 1,
-		stageFlags: VK_SHADER_STAGE_VERTEX_BIT,
-	};
+	VkDescriptorSetLayoutBinding[2] setBindings;
+	setBinding[0].binding = 0;
+	setBinding[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	setBinding[0].descriptorCount = 1;
+	setBinding[0].stageFlags = VK_SHADER_STAGE_MESH_BIT_NV;
+	setBinding[1].binding = 1;
+	setBinding[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	setBinding[1].descriptorCount = 1;
+	setBinding[1].stageFlags = VK_SHADER_MESH_BIT_NV;
+
 	VkDescriptorSetLayoutCreateInfo createInfo = {
 		flags: VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
 		bindingCount: 1,
@@ -58,7 +62,7 @@ VkPipeline createGraphicsPipeline(VkDevice device, VkRenderPass renderPass, VkSh
 {
     VkPipelineShaderStageCreateInfo[2] stages;
     stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+    stages[0].stage = VK_SHADER_STAGE_MESH_BIT_BIT;
     stages[0].Module = vs;
     stages[0].pName = "main";
     stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -82,6 +86,8 @@ VkPipeline createGraphicsPipeline(VkDevice device, VkRenderPass renderPass, VkSh
         lineWidth: 1.0f,
         depthBiasEnable: VK_FALSE,
         depthBiasClamp: 0.0f,
+		frontFace: VK_FRONT_FACE_CLOCKWISE,
+		cullMode: VK_CULL_MODE_BACK_BIT,
     };
 
     VkPipelineMultisampleStateCreateInfo multisampeState = {

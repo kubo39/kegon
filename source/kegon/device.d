@@ -147,7 +147,7 @@ VkPhysicalDevice pickPhysicalDevice(VkPhysicalDevice* physicalDevices, uint phys
 	return result;
 }
 
-VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint familyIndex)
+VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint familyIndex, bool pushDescriptorsSupported, bool meshShadingSupported)
 {
 	float queuePriorities = 1.0f;
 	VkDeviceQueueCreateInfo queueInfo = {
@@ -157,15 +157,35 @@ VkDevice createDevice(VkInstance instance, VkPhysicalDevice physicalDevice, uint
 	};
 
 	const(char)*[] extensions = [
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-		VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	];
+
+	if (pushDescriptorsSupported)
+	{
+		extensions = extensions ~ VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME;
+	}
+
+	if (meshShadingSupported)
+	{
+		extensions = extensions ~ VK_NV_MESH_SHADER_EXTENSION_NAME;
+	}
+
+	VkPhysicalDeviceMeshShaderFeaturesNV featuresMesh = {
+		sType: VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_NV,
+		taskShader: true,
+		meshShader: true,
+	};
 
 	VkPhysicalDeviceVulkan12Features features12 = {
 		storageBuffer8BitAccess: true,
 		uniformAndStorageBuffer8BitAccess: true,
 		shaderInt8: true,
 	};
+
+	if (meshShadingSupported)
+	{
+		features12.pNext = &featuresMesh;
+	}
 
 	VkPhysicalDeviceFeatures2 features = {
 		pNext: &features12,
